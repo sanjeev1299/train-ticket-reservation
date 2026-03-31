@@ -100,7 +100,6 @@ jobs:
           echo "❌ WAR file not found!"
           exit 1
         fi
-
         echo "Deploying $WAR_FILE to DEV ($URL)"
 
         curl -u "$USER:$PASS" --fail -T "$WAR_FILE" \
