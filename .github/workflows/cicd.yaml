@@ -30,7 +30,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: war-file
-          path: ${{ env.WAR_FILE }}
+         path: ${{ env.WAR_FILE }}
 
       - name: Configure Maven settings.xml for Nexus
         run: |
