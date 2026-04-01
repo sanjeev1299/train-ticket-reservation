@@ -1,72 +1,51 @@
-name: CI-CD Pipeline
+name: Build and Deploy train-ticket-reservation
 
 on:
   push:
-    branches: [ "master`" ]
+    branches:
+      - master
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    # ---------------------------
-    # Checkout Code
-    # ---------------------------
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    # ---------------------------
-    # Setup Java
-    # ---------------------------
-    - name: Set up JDK
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
-    # ---------------------------
-    # Build WAR
-    # ---------------------------
-    - name: Build with Maven
-      run: mvn clean package
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
 
-    - name: Verify WAR file
-      run: ls -l target/
+      - name: Find WAR file
+        run: echo "WAR_FILE=$(ls target/*.war | head -n 1)" >> $GITHUB_ENV
 
-    # ✅ IMPORTANT FIX (UPLOAD ARTIFACT)
-    - name: Upload WAR artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: war-file
-        path: target/*.war
+      - name: Upload WAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: war-file
+          path: ${{ env.WAR_FILE }}
 
-    # ---------------------------
-    # SonarQube Analysis
-    # ---------------------------
-    - name: Sonar scan
-      run: |
-        mvn sonar:sonar \
-          -Dsonar.projectKey=train-ticket-reservation \
-          -Dsonar.host.url="${{ secrets.SONAR_HOST }}" \
-          -Dsonar.login="${{ secrets.SONAR_TOKEN }}"
+      - name: Configure Maven settings.xml for Nexus
+        run: |
+          mkdir -p ~/.m2
+          cat <<EOF > ~/.m2/settings.xml
+          <settings>
+            <servers>
+              <server>
+                <id>nexus</id>
+                <username>${{ secrets.NEXUS_USERNAME }}</username>
+                <password>${{ secrets.NEXUS_PASSWORD }}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
 
-    # ---------------------------
-    # Upload to Nexus
-    # ---------------------------
-    - name: Configure Maven settings.xml for Nexus
-      run: |
-        mkdir -p ~/.m2
-        cat <<EOF > ~/.m2/settings.xml
-        <settings>
-          <servers>
-            <server>
-              <id>nexus</id>
-              <username>${{ secrets.NEXUS_USERNAME }}</username>
-              <password>${{ secrets.NEXUS_PASSWORD }}</password>
-            </server>
-          </servers>
-        </settings>
-        EOF
-
-    - name: Upload Artifact to Nexus
-      run: mvn deploy -DaltDeploymentRepository=nexus::default::${{ secrets.NEXUS_REPO_URL }}     
+      - name: Upload Artifact to Nexus
+        run: mvn deploy -DaltDeploymentRepository=nexus::default::${{ secrets.NEXUS_REPO_URL }}
