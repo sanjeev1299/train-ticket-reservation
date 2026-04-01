@@ -16,32 +16,26 @@ jobs:
 
       - name: Set up Java
         uses: actions/setup-java@v4
-        with: 
-          name: Deploy to Nexus
-
- on:
-  push:
-    branches:
-      - main
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up JDK
-        uses: actions/setup-java@v3
         with:
-          java-version: '17'
           distribution: 'temurin'
+          java-version: '17'
 
-      - name: Configure Maven settings
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
+      - name: Find WAR file
+        run: echo "WAR_FILE=$(ls target/*.war | head -n 1)" >> $GITHUB_ENV
+
+      - name: Upload WAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: war-file
+          path: ${{ env.WAR_FILE }}
+
+      - name: Configure Maven settings.xml for Nexus
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml <<EOF
+          cat <<EOF > ~/.m2/settings.xml
           <settings>
             <servers>
               <server>
@@ -53,7 +47,5 @@ jobs:
           </settings>
           EOF
 
-      - name: Build and Deploy
-        run: mvn clean deploy
-        
-      
+      - name: Upload Artifact to Nexus
+        run: mvn deploy -DaltDeploymentRepository=nexus::default::${{ secrets.NEXUS_REPO_URL }}
